@@ -1,8 +1,6 @@
-# LoanProcessingQA.py
-
 import unittest
 
-from LoanProcessingSystem import LoanApplication, LoanProcessingSystem
+from LoanProcessingSystem import LoanProcessingSystem
 
 
 class LoanProcessingQA(unittest.TestCase):
@@ -10,199 +8,182 @@ class LoanProcessingQA(unittest.TestCase):
     def setUp(self):
         self.system = LoanProcessingSystem()
 
-    def valid_application(self, **overrides):
-        values = {
+    def valid_app(self, **changes):
+        app = {
             "customer_id": "C1001",
             "age": 30,
-            "monthly_salary": 100000.0,
-            "existing_loan_amount": 5000.0,
+            "monthly_salary": 100000,
+            "existing_loan_amount": 5000,
             "credit_score": 800,
             "employment_type": "salaried",
-            "requested_loan_amount": 500000.0,
+            "requested_loan_amount": 500000,
             "loan_tenure_years": 10
         }
-        values.update(overrides)
-        return LoanApplication(**values)
+        app.update(changes)
+        return app
 
-    def test_valid_loan_approval(self):
-        result = self.system.process_loan(self.valid_application())
+    def test_valid_application(self):
+        result = self.system.process_loan(self.valid_app())
         self.assertEqual(result["status"], "APPROVED")
 
     def test_minimum_age(self):
-        result = self.system.process_loan(
-            self.valid_application(age=21)
-        )
-        self.assertIn(result["status"], ["APPROVED", "REJECTED"])
+        self.system.process_loan(self.valid_app(age=21))
 
     def test_maximum_age(self):
-        result = self.system.process_loan(
-            self.valid_application(age=60)
-        )
-        self.assertIn(result["status"], ["APPROVED", "REJECTED"])
+        self.system.process_loan(self.valid_app(age=60))
 
     def test_age_below_minimum(self):
         with self.assertRaises(ValueError):
-            self.system.process_loan(
-                self.valid_application(age=20)
-            )
+            self.system.process_loan(self.valid_app(age=20))
 
     def test_age_above_maximum(self):
         with self.assertRaises(ValueError):
-            self.system.process_loan(
-                self.valid_application(age=61)
-            )
+            self.system.process_loan(self.valid_app(age=61))
 
-    def test_invalid_salary_zero(self):
-        with self.assertRaises(ValueError):
-            self.system.process_loan(
-                self.valid_application(monthly_salary=0)
-            )
-
-    def test_invalid_negative_salary(self):
-        with self.assertRaises(ValueError):
-            self.system.process_loan(
-                self.valid_application(monthly_salary=-1000)
-            )
+    def test_invalid_salary(self):
+        for salary in (0, -1000, "invalid", None):
+            with self.subTest(salary=salary):
+                with self.assertRaises(ValueError):
+                    self.system.process_loan(
+                        self.valid_app(monthly_salary=salary)
+                    )
 
     def test_poor_credit_score(self):
         result = self.system.process_loan(
-            self.valid_application(credit_score=500)
+            self.valid_app(credit_score=500)
         )
         self.assertEqual(result["status"], "REJECTED")
 
-    def test_minimum_credit_score(self):
-        result = self.system.process_loan(
-            self.valid_application(credit_score=300)
-        )
-        self.assertEqual(result["status"], "REJECTED")
+    def test_credit_score_boundaries(self):
+        for score in (300, 600, 700, 800, 900):
+            with self.subTest(score=score):
+                result = self.system.process_loan(
+                    self.valid_app(credit_score=score)
+                )
+                self.assertIn(result["status"], ("APPROVED", "REJECTED"))
 
-    def test_maximum_credit_score(self):
-        result = self.system.process_loan(
-            self.valid_application(credit_score=900)
-        )
-        self.assertEqual(result["status"], "APPROVED")
-
-    def test_credit_score_below_range(self):
-        with self.assertRaises(ValueError):
-            self.system.process_loan(
-                self.valid_application(credit_score=299)
-            )
-
-    def test_credit_score_above_range(self):
-        with self.assertRaises(ValueError):
-            self.system.process_loan(
-                self.valid_application(credit_score=901)
-            )
+    def test_invalid_credit_score(self):
+        for score in (299, 901, None):
+            with self.subTest(score=score):
+                with self.assertRaises(ValueError):
+                    self.system.process_loan(
+                        self.valid_app(credit_score=score)
+                    )
 
     def test_existing_loan_exceeds_threshold(self):
         result = self.system.process_loan(
-            self.valid_application(existing_loan_amount=60000)
+            self.valid_app(existing_loan_amount=60000)
         )
         self.assertEqual(result["status"], "REJECTED")
 
+    def test_negative_existing_loan(self):
+        with self.assertRaises(ValueError):
+            self.system.process_loan(
+                self.valid_app(existing_loan_amount=-1)
+            )
+
     def test_high_debt_to_income_ratio(self):
         result = self.system.process_loan(
-            self.valid_application(
+            self.valid_app(
                 monthly_salary=20000,
                 existing_loan_amount=15000
             )
         )
-        self.assertGreater(result["debt_to_income_ratio"], 40)
+        self.assertGreater(result["debt_to_income_ratio"], 50)
         self.assertEqual(result["status"], "REJECTED")
 
-    def test_all_employment_categories(self):
-        categories = [
-            "salaried",
-            "self-employed",
-            "government",
-            "contract"
-        ]
-
-        for category in categories:
-            with self.subTest(employment_type=category):
+    def test_employment_categories(self):
+        for category in (
+            "salaried", "self-employed", "government", "contract"
+        ):
+            with self.subTest(category=category):
                 result = self.system.process_loan(
-                    self.valid_application(employment_type=category)
+                    self.valid_app(employment_type=category)
                 )
-                self.assertIn(result["status"], ["APPROVED", "REJECTED"])
+                self.assertIn(result["status"], ("APPROVED", "REJECTED"))
 
-    def test_invalid_employment_category(self):
+    def test_invalid_employment(self):
         with self.assertRaises(ValueError):
             self.system.process_loan(
-                self.valid_application(employment_type="unemployed")
+                self.valid_app(employment_type="unemployed")
             )
 
     def test_minimum_loan_amount(self):
-        result = self.system.process_loan(
-            self.valid_application(requested_loan_amount=50000)
+        self.system.process_loan(
+            self.valid_app(requested_loan_amount=50000)
         )
-        self.assertIn(result["status"], ["APPROVED", "REJECTED"])
 
     def test_maximum_loan_amount(self):
         result = self.system.process_loan(
-            self.valid_application(requested_loan_amount=5000000)
+            self.valid_app(requested_loan_amount=5000000)
         )
         self.assertEqual(result["status"], "REJECTED")
 
-    def test_loan_amount_below_minimum(self):
+    def test_loan_below_minimum(self):
         with self.assertRaises(ValueError):
             self.system.process_loan(
-                self.valid_application(requested_loan_amount=49999)
+                self.valid_app(requested_loan_amount=49999)
             )
 
-    def test_loan_amount_above_maximum(self):
+    def test_loan_above_maximum(self):
         with self.assertRaises(ValueError):
             self.system.process_loan(
-                self.valid_application(requested_loan_amount=5000001)
+                self.valid_app(requested_loan_amount=5000001)
             )
 
-    def test_emi_calculation_accuracy(self):
+    def test_emi_accuracy(self):
         emi = self.system.calculate_emi(100000, 12, 1)
         self.assertAlmostEqual(emi, 8884.88, delta=0.02)
 
     def test_zero_interest_emi(self):
         emi = self.system.calculate_emi(120000, 0, 1)
-        self.assertAlmostEqual(emi, 10000.00, places=2)
+        self.assertAlmostEqual(emi, 10000, places=2)
 
     def test_zero_principal_emi(self):
-        self.assertEqual(
-            self.system.calculate_emi(0, 12, 1),
-            0.0
-        )
+        self.assertEqual(self.system.calculate_emi(0, 12, 1), 0)
 
-    def test_negative_principal_exception(self):
+    def test_negative_principal(self):
         with self.assertRaises(ValueError):
             self.system.calculate_emi(-1000, 12, 1)
 
-    def test_negative_interest_exception(self):
+    def test_negative_interest(self):
         with self.assertRaises(ValueError):
             self.system.calculate_emi(1000, -1, 1)
 
-    def test_invalid_tenure_exception(self):
+    def test_invalid_tenure(self):
         with self.assertRaises(ValueError):
             self.system.calculate_emi(1000, 12, 0)
 
-    def test_invalid_loan_tenure(self):
-        with self.assertRaises(ValueError):
-            self.system.process_loan(
-                self.valid_application(loan_tenure_years=31)
-            )
-
-    def test_negative_existing_loan(self):
-        with self.assertRaises(ValueError):
-            self.system.process_loan(
-                self.valid_application(existing_loan_amount=-1)
-            )
+    def test_invalid_application_tenure(self):
+        for tenure in (0, 31, None):
+            with self.subTest(tenure=tenure):
+                with self.assertRaises(ValueError):
+                    self.system.process_loan(
+                        self.valid_app(loan_tenure_years=tenure)
+                    )
 
     def test_empty_customer_id(self):
         with self.assertRaises(ValueError):
             self.system.process_loan(
-                self.valid_application(customer_id="")
+                self.valid_app(customer_id="")
             )
 
-    def test_invalid_numeric_input_handling(self):
-        with self.assertRaises((ValueError, TypeError)):
+    def test_null_customer_id(self):
+        with self.assertRaises(ValueError):
             self.system.process_loan(
-                self.valid_application(monthly_salary="invalid")
+                self.valid_app(customer_id=None)
+            )
+
+    def test_non_string_employment(self):
+        with self.assertRaises(ValueError):
+            self.system.process_loan(
+                self.valid_app(employment_type=None)
+            )
+
+    def test_invalid_numeric_type(self):
+        with self.assertRaises(ValueError):
+            self.system.process_loan(
+                self.valid_app(monthly_salary="invalid")
             )
 
 

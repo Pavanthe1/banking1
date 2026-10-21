@@ -1,33 +1,12 @@
-# LoanProcessingSystem.py
-
-from dataclasses import dataclass
-
-
-@dataclass
-class LoanApplication:
-    customer_id: str
-    age: int
-    monthly_salary: float
-    existing_loan_amount: float
-    credit_score: int
-    employment_type: str
-    requested_loan_amount: float
-    loan_tenure_years: int
-
-
 class LoanProcessingSystem:
 
     MIN_AGE = 21
     MAX_AGE = 60
-    MIN_SALARY = 10000.0
+    MIN_SALARY = 10000
     MIN_CREDIT_SCORE = 300
     MAX_CREDIT_SCORE = 900
-    MAX_DTI_RATIO = 0.40
-    MAX_EXISTING_LOAN_RATIO = 0.50
-    MIN_LOAN_AMOUNT = 50000.0
-    MAX_LOAN_AMOUNT = 5000000.0
-    MIN_TENURE = 1
-    MAX_TENURE = 30
+    MIN_LOAN = 50000
+    MAX_LOAN = 5000000
 
     EMPLOYMENT_MULTIPLIERS = {
         "salaried": 20,
@@ -36,132 +15,125 @@ class LoanProcessingSystem:
         "contract": 10
     }
 
-    def validate(self, application):
-        if not application.customer_id.strip():
-            raise ValueError("Customer ID cannot be empty.")
+    def validate(self, app):
+        if not isinstance(app["customer_id"], str) or not app["customer_id"].strip():
+            raise ValueError("Invalid customer ID")
 
-        if not self.MIN_AGE <= application.age <= self.MAX_AGE:
-            raise ValueError("Age must be between 21 and 60.")
+        if not isinstance(app["age"], int) or not self.MIN_AGE <= app["age"] <= self.MAX_AGE:
+            raise ValueError("Age must be between 21 and 60")
 
-        if application.monthly_salary < self.MIN_SALARY:
-            raise ValueError("Monthly salary must be at least 10000.")
+        if not isinstance(app["monthly_salary"], (int, float)) or isinstance(app["monthly_salary"], bool) or app["monthly_salary"] < self.MIN_SALARY:
+            raise ValueError("Invalid monthly salary")
 
-        if application.existing_loan_amount < 0:
-            raise ValueError("Existing loan amount cannot be negative.")
+        if not isinstance(app["existing_loan_amount"], (int, float)) or isinstance(app["existing_loan_amount"], bool) or app["existing_loan_amount"] < 0:
+            raise ValueError("Invalid existing loan amount")
 
-        if not self.MIN_CREDIT_SCORE <= application.credit_score <= self.MAX_CREDIT_SCORE:
-            raise ValueError("Credit score must be between 300 and 900.")
+        if not isinstance(app["credit_score"], int) or not self.MIN_CREDIT_SCORE <= app["credit_score"] <= self.MAX_CREDIT_SCORE:
+            raise ValueError("Credit score must be between 300 and 900")
 
-        if application.employment_type.lower() not in self.EMPLOYMENT_MULTIPLIERS:
-            raise ValueError("Invalid employment type.")
+        if not isinstance(app["employment_type"], str) or app["employment_type"].lower() not in self.EMPLOYMENT_MULTIPLIERS:
+            raise ValueError("Invalid employment type")
 
-        if not self.MIN_LOAN_AMOUNT <= application.requested_loan_amount <= self.MAX_LOAN_AMOUNT:
-            raise ValueError("Requested loan must be between 50000 and 5000000.")
+        if not isinstance(app["requested_loan_amount"], (int, float)) or isinstance(app["requested_loan_amount"], bool) or not self.MIN_LOAN <= app["requested_loan_amount"] <= self.MAX_LOAN:
+            raise ValueError("Loan amount must be between 50000 and 5000000")
 
-        if not self.MIN_TENURE <= application.loan_tenure_years <= self.MAX_TENURE:
-            raise ValueError("Loan tenure must be between 1 and 30 years.")
+        if not isinstance(app["loan_tenure_years"], int) or not 1 <= app["loan_tenure_years"] <= 30:
+            raise ValueError("Tenure must be between 1 and 30 years")
 
     @staticmethod
-    def calculate_emi(principal, annual_interest_rate, tenure_years):
-        if principal < 0:
-            raise ValueError("Principal cannot be negative.")
-        if annual_interest_rate < 0:
-            raise ValueError("Interest rate cannot be negative.")
-        if tenure_years <= 0:
-            raise ValueError("Tenure must be positive.")
+    def calculate_emi(principal, annual_rate, years):
+        if principal < 0 or annual_rate < 0 or years <= 0:
+            raise ValueError("Invalid EMI input")
+
+        months = years * 12
+
         if principal == 0:
             return 0.0
 
-        months = tenure_years * 12
-        monthly_rate = annual_interest_rate / 1200
+        rate = annual_rate / 1200
 
-        if monthly_rate == 0:
+        if rate == 0:
             return principal / months
 
-        factor = (1 + monthly_rate) ** months
-        return principal * monthly_rate * factor / (factor - 1)
+        factor = (1 + rate) ** months
+        return principal * rate * factor / (factor - 1)
 
-    def process_loan(self, application):
-        self.validate(application)
+    def process_loan(self, app):
+        self.validate(app)
 
-        salary = application.monthly_salary
-        existing_loan = application.existing_loan_amount
-        credit_score = application.credit_score
-        employment = application.employment_type.lower()
-        tenure = application.loan_tenure_years
+        salary = app["monthly_salary"]
+        existing = app["existing_loan_amount"]
+        score = app["credit_score"]
+        employment = app["employment_type"].lower()
+        requested = app["requested_loan_amount"]
+        years = app["loan_tenure_years"]
 
-        dti_ratio = (existing_loan / salary) if salary else float("inf")
+        dti = existing / salary * 100
 
-        eligible_amount = salary * self.EMPLOYMENT_MULTIPLIERS[employment] * 12
-        eligible_amount = min(eligible_amount, self.MAX_LOAN_AMOUNT)
-
-        if credit_score < 600:
-            interest_rate = 16.0
-        elif credit_score < 700:
-            interest_rate = 12.0
-        elif credit_score < 800:
-            interest_rate = 9.0
+        if score < 600:
+            interest = 16.0
+        elif score < 700:
+            interest = 12.0
+        elif score < 800:
+            interest = 9.0
         else:
-            interest_rate = 7.0
+            interest = 7.0
 
         if employment == "contract":
-            interest_rate += 2.0
+            interest += 2
         elif employment == "self-employed":
-            interest_rate += 1.0
+            interest += 1
 
-        monthly_capacity = salary * self.MAX_DTI_RATIO
-        maximum_supported_principal = (
-            monthly_capacity * tenure * 12
-            if interest_rate == 0
-            else monthly_capacity
-            * (1 - (1 + interest_rate / 1200) ** (-tenure * 12))
-            / (interest_rate / 1200)
+        eligible = min(
+            salary * self.EMPLOYMENT_MULTIPLIERS[employment] * 12,
+            self.MAX_LOAN
         )
 
-        eligible_amount = min(
-            eligible_amount,
-            maximum_supported_principal
+        monthly_capacity = salary * 0.40
+        monthly_rate = interest / 1200
+        months = years * 12
+
+        supported_amount = monthly_capacity * (
+            (1 - (1 + monthly_rate) ** (-months)) / monthly_rate
         )
 
-        emi = self.calculate_emi(
-            application.requested_loan_amount,
-            interest_rate,
-            tenure
-        )
+        eligible = min(eligible, supported_amount)
 
-        approval = (
-            credit_score >= 600
-            and dti_ratio <= self.MAX_EXISTING_LOAN_RATIO
-            and application.requested_loan_amount <= eligible_amount
-            and emi + existing_loan <= monthly_capacity
+        emi = self.calculate_emi(requested, interest, years)
+
+        approved = (
+            score >= 600
+            and dti <= 50
+            and requested <= eligible
+            and emi + existing <= monthly_capacity
         )
 
         return {
-            "customer_id": application.customer_id,
-            "debt_to_income_ratio": round(dti_ratio * 100, 2),
-            "eligible_loan_amount": round(max(0, eligible_amount), 2),
-            "interest_rate": round(interest_rate, 2),
+            "customer_id": app["customer_id"],
+            "debt_to_income_ratio": round(dti, 2),
+            "eligible_loan_amount": round(max(0, eligible), 2),
+            "interest_rate": round(interest, 2),
             "emi": round(emi, 2),
-            "status": "APPROVED" if approval else "REJECTED"
+            "status": "APPROVED" if approved else "REJECTED"
         }
 
 
-def main():
+if __name__ == "__main__":
     system = LoanProcessingSystem()
 
     try:
-        application = LoanApplication(
-            customer_id=input("Customer ID: ").strip(),
-            age=int(input("Age: ")),
-            monthly_salary=float(input("Monthly salary: ")),
-            existing_loan_amount=float(input("Existing loan amount: ")),
-            credit_score=int(input("Credit score (300-900): ")),
-            employment_type=input(
-                "Employment (salaried/self-employed/government/contract): "
+        application = {
+            "customer_id": input("Customer ID: ").strip(),
+            "age": int(input("Age: ")),
+            "monthly_salary": float(input("Monthly salary: ")),
+            "existing_loan_amount": float(input("Existing loan amount: ")),
+            "credit_score": int(input("Credit score: ")),
+            "employment_type": input(
+                "Employment type (salaried/self-employed/government/contract): "
             ).strip(),
-            requested_loan_amount=float(input("Requested loan amount: ")),
-            loan_tenure_years=int(input("Loan tenure in years: "))
-        )
+            "requested_loan_amount": float(input("Requested loan amount: ")),
+            "loan_tenure_years": int(input("Loan tenure in years: "))
+        }
 
         result = system.process_loan(application)
 
@@ -169,10 +141,6 @@ def main():
             print(f"{key}: {value}")
 
     except (ValueError, TypeError) as error:
-        print(f"Invalid application: {error}")
+        print("Application error:", error)
     except Exception as error:
-        print(f"Unexpected error: {error}")
-
-
-if __name__ == "__main__":
-    main()
+        print("Unexpected error:", error)

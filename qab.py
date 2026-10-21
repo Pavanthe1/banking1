@@ -1,6 +1,6 @@
 import unittest
 
-from LoanProcessingSystem import LoanProcessingSystem
+from devb import LoanProcessingSystem
 
 
 class LoanProcessingQA(unittest.TestCase):

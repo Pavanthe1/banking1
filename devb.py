@@ -1,3 +1,4 @@
+
 class LoanProcessingSystem:
 
     MIN_AGE = 21
@@ -16,28 +17,48 @@ class LoanProcessingSystem:
     }
 
     def validate(self, app):
+        required = [
+            "customer_id", "age", "monthly_salary",
+            "existing_loan_amount", "credit_score",
+            "employment_type", "requested_loan_amount",
+            "loan_tenure_years"
+        ]
+
+        if not isinstance(app, dict):
+            raise ValueError("Application must be a dictionary")
+
+        for key in required:
+            if key not in app:
+                raise ValueError(f"Missing field: {key}")
+
         if not isinstance(app["customer_id"], str) or not app["customer_id"].strip():
             raise ValueError("Invalid customer ID")
 
-        if not isinstance(app["age"], int) or not self.MIN_AGE <= app["age"] <= self.MAX_AGE:
+        if type(app["age"]) is not int or not self.MIN_AGE <= app["age"] <= self.MAX_AGE:
             raise ValueError("Age must be between 21 and 60")
 
-        if not isinstance(app["monthly_salary"], (int, float)) or isinstance(app["monthly_salary"], bool) or app["monthly_salary"] < self.MIN_SALARY:
-            raise ValueError("Invalid monthly salary")
+        salary = app["monthly_salary"]
+        if type(salary) not in (int, float) or salary < self.MIN_SALARY:
+            raise ValueError("Monthly salary must be at least 10000")
 
-        if not isinstance(app["existing_loan_amount"], (int, float)) or isinstance(app["existing_loan_amount"], bool) or app["existing_loan_amount"] < 0:
+        existing = app["existing_loan_amount"]
+        if type(existing) not in (int, float) or existing < 0:
             raise ValueError("Invalid existing loan amount")
 
-        if not isinstance(app["credit_score"], int) or not self.MIN_CREDIT_SCORE <= app["credit_score"] <= self.MAX_CREDIT_SCORE:
+        score = app["credit_score"]
+        if type(score) is not int or not self.MIN_CREDIT_SCORE <= score <= self.MAX_CREDIT_SCORE:
             raise ValueError("Credit score must be between 300 and 900")
 
-        if not isinstance(app["employment_type"], str) or app["employment_type"].lower() not in self.EMPLOYMENT_MULTIPLIERS:
+        employment = app["employment_type"]
+        if not isinstance(employment, str) or employment.lower() not in self.EMPLOYMENT_MULTIPLIERS:
             raise ValueError("Invalid employment type")
 
-        if not isinstance(app["requested_loan_amount"], (int, float)) or isinstance(app["requested_loan_amount"], bool) or not self.MIN_LOAN <= app["requested_loan_amount"] <= self.MAX_LOAN:
+        requested = app["requested_loan_amount"]
+        if type(requested) not in (int, float) or not self.MIN_LOAN <= requested <= self.MAX_LOAN:
             raise ValueError("Loan amount must be between 50000 and 5000000")
 
-        if not isinstance(app["loan_tenure_years"], int) or not 1 <= app["loan_tenure_years"] <= 30:
+        tenure = app["loan_tenure_years"]
+        if type(tenure) is not int or not 1 <= tenure <= 30:
             raise ValueError("Tenure must be between 1 and 30 years")
 
     @staticmethod
@@ -118,7 +139,7 @@ class LoanProcessingSystem:
         }
 
 
-if __name__ == "__main__":
+def main():
     system = LoanProcessingSystem()
 
     try:
@@ -144,3 +165,7 @@ if __name__ == "__main__":
         print("Application error:", error)
     except Exception as error:
         print("Unexpected error:", error)
+
+
+if __name__ == "__main__":
+    main()
